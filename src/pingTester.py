@@ -6,6 +6,7 @@ import csv
 import socket
 from netmiko import ConnectHandler
 from netmiko.ssh_exception import NetMikoTimeoutException,NetMikoAuthenticationException
+import time
 
 def check_ping(hostname):
 
@@ -53,11 +54,12 @@ def ie4kPing(sourceAsset,sourceAddr,repetitions,packetSize,filename):
         ospf77 = ""
         ospf88 = ""
         print sourceAddr
-        
         # we get the ospf neighbors
         # and parse out the IPs for forward and reverse neighbors
+        time.sleep(1)
         ospfCommand = "show ospf neighbor vlan " + str(77)
         ospf77 = net_connect.send_command(ospfCommand).split('\n')[-1].split(' ')[0]
+        time.sleep(1)
         ospfCommand = "show ospf neighbor vlan " + str(88)
         ospf88 = net_connect.send_command(ospfCommand).split('\n')[-1].split(' ')[0]
 
@@ -66,12 +68,13 @@ def ie4kPing(sourceAsset,sourceAddr,repetitions,packetSize,filename):
     finally:
         # initialize the output dictionary
         pingOutput = {}
-        
+        print sourceAddr, ospf77, ospf88
         # if there's no ospf peer we just skip the ping test
         if ospf77:
             # initialize the output dictionary for the ospf77 tests
             pingOutput[ospf77] = {}
             pingCommand = 'ping ' + ospf77 + " repeat " + repetitions + " size " + packetSize
+            time.sleep(1)
             line = net_connect.send_command(pingCommand).split('\n')[-1].split(' ')
             
             # break out all the results in to the right variables
@@ -93,6 +96,7 @@ def ie4kPing(sourceAsset,sourceAddr,repetitions,packetSize,filename):
             # initialize the output dictionary for the ospf88 tests
             pingOutput[ospf88] = {}
             pingCommand = 'ping ' + ospf88 + " repeat " + repetitions + " size " + packetSize
+            time.sleep(1)
             line = net_connect.send_command(pingCommand).split('\n')[-1].split(' ')
             
             # break out all the results in to the right variables
@@ -161,9 +165,15 @@ try:
 
     for asset, assetData in tests.items():
         # we make sure we can ping the switch before we do anything else
-        if check_ping(assetData['SW0']):
-            ie4kPing(asset,assetData['SW0'],assetData['repeat'],assetData['size'],currentDateTime)
+        #if check_ping(assetData['SW0']):
+        #    print "ping " + assetData['SW0']
+        #    ie4kPing(asset,assetData['SW0'],assetData['repeat'],assetData['size'],currentDateTime)
+        #else:
+        #    print "no ping " + assetData['SW0']
         if check_ping(assetData['SW1']):
+            print "ping " + assetData['SW1']
             ie4kPing(asset,assetData['SW1'],assetData['repeat'],assetData['size'],currentDateTime)
+        else:
+            print "no ping " + assetData['SW1']
 except IndexError:
     pass
