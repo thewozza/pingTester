@@ -32,7 +32,7 @@ def get_ip():
         s.close()
     return IP
     
-def ie4kPing(sourceAddr,repetitions,packetSize,filename):
+def ie4kPing(sourceAsset,sourceAddr,repetitions,packetSize,filename):
     switch = {
         'device_type': 'cisco_ios',
         'ip': sourceAddr,
@@ -60,7 +60,7 @@ def ie4kPing(sourceAddr,repetitions,packetSize,filename):
         ospf88 = net_connect.send_command(ospfCommand).split('\n')[-1].split(' ')[0]
 
     except NetMikoTimeoutException,NetMikoAuthenticationException:
-        print "Not able to connect to " + sourceAddr
+        return
     finally:
         # initialize the output dictionary
         pingOutput = {}
@@ -75,7 +75,17 @@ def ie4kPing(sourceAddr,repetitions,packetSize,filename):
             # break out all the results in to the right variables
             pingOutput[ospf77]['percent'] = line[3]
             (pingOutput[ospf77]['RTTmin'],pingOutput[ospf77]['RTTavg'],pingOutput[ospf77]['RTTmax']) = line[9].split('/')
-        
+
+            # iterate over the consist list to see what assets 
+            # our peers are on
+            for assetNum in consist:
+                if ospf77 in consist[assetNum]['SW0']:
+                    pingOutput[ospf77]['asset'] = str(assetNum)
+                    break
+                elif ospf77 in consist[assetNum]['SW1']:
+                    pingOutput[ospf77]['asset'] = str(assetNum)
+                    break
+                    
         # if there's no ospf peer we just skip the ping test
         if ospf88:
             # initialize the output dictionary for the ospf88 tests
@@ -86,7 +96,17 @@ def ie4kPing(sourceAddr,repetitions,packetSize,filename):
             # break out all the results in to the right variables
             pingOutput[ospf88]['percent'] = line[3]
             (pingOutput[ospf88]['RTTmin'],pingOutput[ospf88]['RTTavg'],pingOutput[ospf88]['RTTmax']) = line[9].split('/')
-        
+
+            # iterate over the consist list to see what assets 
+            # our peers are on            
+            for assetNum in consist:
+                if ospf88 in consist[assetNum]['SW0']:
+                    pingOutput[ospf88]['asset'] = str(assetNum)
+                    break
+                elif ospf88 in consist[assetNum]['SW1']:
+                    pingOutput[ospf88]['asset'] = str(assetNum)
+                    break
+                    
         # we always sanely disconnect
         net_connect.disconnect()
         # we use this as row data in the output
@@ -102,21 +122,46 @@ def ie4kPing(sourceAddr,repetitions,packetSize,filename):
             # peerIP is IP of the neighbor (for either vlan 77 or 88)
             # dictLoop is a dictionary containing the results of the tests
             for peerIP, dictLoop in pingOutput.items():
-                csvoutput.writerow([currentTime,sourceAddr,peerIP,repetitions,packetSize,dictLoop["percent"],dictLoop["RTTmin"],dictLoop["RTTavg"],dictLoop["RTTmax"]])
+                csvoutput.writerow([currentTime,sourceAsset,sourceAddr,dictLoop["asset"],peerIP,repetitions,packetSize,dictLoop["percent"],dictLoop["RTTmin"],dictLoop["RTTavg"],dictLoop["RTTmax"]])
         # sanely close the file handler
         csvfile.close()
-    
+
+# these are the systems we're going to test
 testFile = csv.DictReader(open("pingTesterTests.csv"))
+
+# initialize the test dictionary
+tests = {}
+
+# run through the CSV and push the test setup into the test dictionary
+for row in testFile:
+    tests[row['sourceAsset']] = {}
+    tests[row['sourceAsset']]['SW0'] = row['SW0']
+    tests[row['sourceAsset']]['SW1'] = row['SW1']
+    tests[row['sourceAsset']]['repeat'] = row['repeat']
+    tests[row['sourceAsset']]['size'] = row['size']
+
+# this is the consist switch layout
+# we use it to figure out what assets our peers are part of
+consistFile = csv.DictReader(open("consistList.csv"))
+
+# initialize the consist dictionary
+consist = {}
+
+# run through the CSV and push the consist data into the dictionary
+for row in consistFile:
+    consist[row['sourceAsset']] = {}
+    consist[row['sourceAsset']]['SW0'] = row['SW0']
+    consist[row['sourceAsset']]['SW1'] = row['SW1']
 
 try:
     # we use this as the CSV filename for output
-    currentDateTime = str((datetime.date(datetime.now()))) + "." + str(datetime.time(datetime.now())).split(".")[0].replace(':','.')
+    currentDateTime = str((datetime.date(datetime.now())))
 
-    for row in testFile:
+    for asset, assetData in tests.items():
         # we make sure we can ping the switch before we do anything else
-        if check_ping(row['SourceIP']):
-            ie4kPing(row['SourceIP'],row['repeat'],row['size'],currentDateTime)
-        else:
-            "Not pingable no tests possible"
+        if check_ping(assetData['SW0']):
+            ie4kPing(asset,assetData['SW0'],assetData['repeat'],assetData['size'],currentDateTime)
+        if check_ping(assetData['SW1']):
+            ie4kPing(asset,assetData['SW1'],assetData['repeat'],assetData['size'],currentDateTime)
 except IndexError:
     pass
