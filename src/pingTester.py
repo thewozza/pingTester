@@ -11,13 +11,12 @@ def check_ping(hostname):
 
     # just do a quick ping test to the remote server
     # there's no point going further if we can't ping it
-    try:
-        response  = subprocess.check_output("ping -{} 1 {}".format('n' if platform.system().lower()=="windows" else 'c', hostname), shell=True)
-    
-    except Exception:
-        return False
-    return True
+    output = subprocess.Popen(["ping.exe",hostname],stdout = subprocess.PIPE).communicate()[0]
 
+    if ('unreachable' in output):
+        return False
+    else:
+        return True
 
 def get_ip():
     # I blindly copied this from the internet
@@ -51,6 +50,9 @@ def ie4kPing(sourceAsset,sourceAddr,repetitions,packetSize,filename):
             
         # this is what we connect to
         net_connect = ConnectHandler(**switch)
+        ospf77 = ""
+        ospf88 = ""
+        print sourceAddr
         
         # we get the ospf neighbors
         # and parse out the IPs for forward and reverse neighbors
