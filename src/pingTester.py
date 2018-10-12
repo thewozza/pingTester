@@ -1,9 +1,8 @@
 #!/usr/bin/python
 
-import subprocess, platform
+import subprocess
 from datetime import datetime
 import csv
-import socket
 from netmiko import ConnectHandler
 from netmiko.ssh_exception import NetMikoTimeoutException,NetMikoAuthenticationException
 import time
@@ -15,9 +14,9 @@ def validate_ipaddress(ip):
     try:
         ipaddress.ip_address(ip)
         return True
-    except ValueError as errorCode:
+    except ValueError:
         #uncomment below if you want to display the exception message.
-        print(errorCode)
+        #print(errorCode)
         #comment below if above is uncommented.
         pass
         return False
@@ -54,13 +53,19 @@ def ie4kPing(sourceAsset,sourceAddr,repetitions,packetSize,filename):
         net_connect = ConnectHandler(**switch)
         print "We're in " + sourceAddr
         print sourceAddr
+        
+        # initialize variables as unicode 
+        # required by the IP address validator
         ospf77 = u""
         ospf88 = u""
+        
         # we get the ospf neighbors
         # and parse out the IPs for forward and reverse neighbors
         time.sleep(1)
         ospfCommand = "show ospf neighbor vlan " + str(77)
         ospf77 = net_connect.send_command(ospfCommand).split('\n')[-1].split(' ')[0]
+        
+        # sometimes out output sucks, so we do some error handling
         try:
             if validate_ipaddress(ospf77):
                 print "We got OSPF 77"
@@ -69,6 +74,8 @@ def ie4kPing(sourceAsset,sourceAddr,repetitions,packetSize,filename):
         time.sleep(1)
         ospfCommand = "show ospf neighbor vlan " + str(88)
         ospf88 = net_connect.send_command(ospfCommand).split('\n')[-1].split(' ')[0]
+        
+        # sometimes out output sucks, so we do some error handling
         try:
             if validate_ipaddress(ospf88):
                 print "We got OSPF 88"
@@ -88,10 +95,12 @@ def ie4kPing(sourceAsset,sourceAddr,repetitions,packetSize,filename):
             line = net_connect.send_command(pingCommand).split('\n')[-1].split(' ')
             
             # break out all the results in to the right variables
+            # make sure we have enough error handling
             try:
                 pingOutput[ospf77]['percent'] = line[3]
             except IndexError:
                 pingOutput[ospf77]['percent'] = ""
+           # make sure we have enough error handling
             try:
                 (pingOutput[ospf77]['RTTmin'],pingOutput[ospf77]['RTTavg'],pingOutput[ospf77]['RTTmax']) = line[9].split('/')
             except IndexError:
@@ -118,10 +127,12 @@ def ie4kPing(sourceAsset,sourceAddr,repetitions,packetSize,filename):
             line = net_connect.send_command(pingCommand).split('\n')[-1].split(' ')
             
             # break out all the results in to the right variables
+            # make sure we have enough error handling
             try:
                 pingOutput[ospf88]['percent'] = line[3]
             except IndexError:
                 pingOutput[ospf88]['percent'] = ""
+            # make sure we have enough error handling
             try:
                 (pingOutput[ospf88]['RTTmin'],pingOutput[ospf88]['RTTavg'],pingOutput[ospf88]['RTTmax']) = line[9].split('/')
             except IndexError:
